@@ -1,0 +1,675 @@
+import { useState, useEffect } from "react";
+
+const SUBJECTS = [
+  { key: "math", label: "Mathematics", target: 5, color: "#185FA5" },
+  { key: "reasoning", label: "Reasoning", target: 4, color: "#0F6E56" },
+  { key: "gk", label: "GK / Current Affairs", target: 2, color: "#854F0B" },
+  { key: "english", label: "English", target: 1, color: "#993556" },
+];
+
+const TOTAL_TARGET = 12;
+
+const HABIT_STRATEGIES = [
+  {
+    title: "Procrastination",
+    icon: "ti-clock-pause",
+    color: "#185FA5",
+    bg: "#E6F1FB",
+    textColor: "#0C447C",
+    tactics: [
+      "2-Minute Rule: If a task takes < 2 min, do it NOW.",
+      "Time-block every study session in a physical planner.",
+      "Start with your hardest subject (Math) when willpower is highest.",
+      "Use Pomodoro: 50 min deep work → 10 min break.",
+      "Place your study material out the night before.",
+    ],
+  },
+  {
+    title: "Social media addiction",
+    icon: "ti-device-mobile-off",
+    color: "#0F6E56",
+    bg: "#E1F5EE",
+    textColor: "#085041",
+    tactics: [
+      "Phone in airplane mode during all study blocks.",
+      "Use 'Digital Sunset': no phone after 9 PM.",
+      "Install website blockers (Cold Turkey / Freedom).",
+      "Allocate ONE 20-min window for social media after study.",
+      "Replace scroll sessions with 5-min walks or breathing.",
+    ],
+  },
+  {
+    title: "PMO addiction",
+    icon: "ti-shield-lock",
+    color: "#993556",
+    bg: "#FBEAF0",
+    textColor: "#72243E",
+    tactics: [
+      "Identify triggers (boredom, stress, late night) and pre-plan escape routes.",
+      "Cold shower protocol immediately upon urge.",
+      "Install website blockers on all devices — no exceptions.",
+      "Replace the habit loop with 10 push-ups + journaling.",
+      "Track streak daily — visualize your momentum building.",
+    ],
+  },
+];
+
+const MOCK_SAMPLE = [
+  { date: "2026-05-01", name: "NTPC-001", math: 22, reasoning: 18, gk: 12, english: 7, total: 59, accuracy: 71, attempts: 83, time: 85, rank: "Top 35%", errors: "Time mgmt in Math" },
+  { date: "2026-05-05", name: "NTPC-002", math: 24, reasoning: 20, gk: 13, english: 8, total: 65, accuracy: 74, attempts: 88, time: 82, rank: "Top 28%", errors: "GK current affairs gaps" },
+  { date: "2026-05-10", name: "SSC-CGL-001", math: 26, reasoning: 22, gk: 14, english: 9, total: 71, accuracy: 78, attempts: 91, time: 80, rank: "Top 20%", errors: "Speed in reasoning" },
+  { date: "2026-05-15", name: "NTPC-003", math: 28, reasoning: 23, gk: 15, english: 9, total: 75, accuracy: 81, attempts: 93, time: 78, rank: "Top 16%", errors: "English vocab" },
+  { date: "2026-05-20", name: "SSC-CGL-002", math: 29, reasoning: 25, gk: 16, english: 10, total: 80, accuracy: 84, attempts: 95, time: 76, rank: "Top 10%", errors: "Minimal" },
+];
+
+const WEEKLY_SAMPLE = [
+  { week: "W1 Apr", math: 4.2, reasoning: 3.5, gk: 1.8, english: 0.9, total: 10.4 },
+  { week: "W2 Apr", math: 4.6, reasoning: 3.8, gk: 1.9, english: 1.0, total: 11.3 },
+  { week: "W3 Apr", math: 4.9, reasoning: 4.0, gk: 2.0, english: 1.0, total: 11.9 },
+  { week: "W4 Apr", math: 5.0, reasoning: 4.1, gk: 2.1, english: 1.0, total: 12.2 },
+  { week: "W1 May", math: 5.1, reasoning: 4.2, gk: 2.0, english: 1.0, total: 12.3 },
+  { week: "W2 May", math: 5.2, reasoning: 4.3, gk: 2.1, english: 1.1, total: 12.7 },
+];
+
+const INCOME_SAMPLE = [
+  { month: "Jan 2026", astrology: 3200, trading: 5000, youtube: 800, total: 9000 },
+  { month: "Feb 2026", astrology: 3800, trading: 4200, youtube: 1200, total: 9200 },
+  { month: "Mar 2026", astrology: 4500, trading: 6500, youtube: 1800, total: 12800 },
+  { month: "Apr 2026", astrology: 5200, trading: 7800, youtube: 2400, total: 15400 },
+  { month: "May 2026", astrology: 6000, trading: 9000, youtube: 3200, total: 18200 },
+];
+
+const TOTAL_5YR_GOAL = 5000000;
+const totalEarned = INCOME_SAMPLE.reduce((s, r) => s + r.total, 0);
+
+function ProgressBar({ value, max, color }) {
+  const pct = Math.min(100, Math.round((value / max) * 100));
+  return (
+    <div style={{ background: "#e5e7eb", borderRadius: 6, height: 8, overflow: "hidden", flex: 1 }}>
+      <div style={{ width: pct + "%", background: color, height: "100%", borderRadius: 6, transition: "width 0.5s" }} />
+    </div>
+  );
+}
+
+function MetricCard({ label, value, sub, color }) {
+  return (
+    <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "14px 16px", flex: 1, minWidth: 120 }}>
+      <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 22, fontWeight: 500, color: color || "var(--color-text-primary)" }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>{sub}</div>}
+    </div>
+  );
+}
+
+function SectionHeader({ icon, title, badge }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, paddingBottom: 10, borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+      <i className={`ti ${icon}`} style={{ fontSize: 20, color: "var(--color-text-secondary)" }} aria-hidden="true" />
+      <span style={{ fontSize: 17, fontWeight: 500, color: "var(--color-text-primary)" }}>{title}</span>
+      {badge && <span style={{ fontSize: 11, padding: "2px 10px", borderRadius: 20, background: "var(--color-background-info)", color: "var(--color-text-info)", marginLeft: "auto" }}>{badge}</span>}
+    </div>
+  );
+}
+
+function DailyTracker() {
+  const today = new Date().toISOString().slice(0, 10);
+  const [log, setLog] = useState({
+    date: today, wakeup: "", workout: false,
+    math: "", reasoning: "", gk: "", english: "",
+    nofap: false, sm_target: 20, sm_actual: "",
+    procrastination: 0, deep_work: 0, reflection: "", mood: 3,
+  });
+
+  const totalActual = ["math", "reasoning", "gk", "english"].reduce((s, k) => s + (parseFloat(log[k]) || 0), 0);
+  const consistency = Math.min(100, Math.round((totalActual / TOTAL_TARGET) * 100));
+
+  const update = (k, v) => setLog(p => ({ ...p, [k]: v }));
+
+  return (
+    <div>
+      <SectionHeader icon="ti-calendar-event" title="Daily tracker dashboard" badge={today} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginBottom: 20 }}>
+        <MetricCard label="Total hours logged" value={totalActual.toFixed(1) + "h"} sub={"Target: " + TOTAL_TARGET + "h"} color={totalActual >= TOTAL_TARGET ? "#0F6E56" : "#A32D2D"} />
+        <MetricCard label="Daily consistency" value={consistency + "%"} sub="vs 12h target" color={consistency >= 90 ? "#0F6E56" : consistency >= 70 ? "#854F0B" : "#A32D2D"} />
+        <MetricCard label="Deep work sessions" value={log.deep_work} sub="sessions today" />
+        <MetricCard label="Mood" value={"⬛".repeat(log.mood) + "⬜".repeat(5 - log.mood)} sub="1–5 scale" />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+        <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)", padding: "14px 16px" }}>
+          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>Morning protocol</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <i className="ti ti-alarm" style={{ fontSize: 16, color: "var(--color-text-secondary)" }} aria-hidden="true" />
+              <span style={{ fontSize: 13, color: "var(--color-text-secondary)", width: 90 }}>Wake-up time</span>
+              <input type="time" value={log.wakeup} onChange={e => update("wakeup", e.target.value)} style={{ fontSize: 13, padding: "4px 8px" }} />
+              {log.wakeup && log.wakeup <= "05:30" && <span style={{ fontSize: 11, color: "#0F6E56" }}>On target</span>}
+              {log.wakeup && log.wakeup > "05:30" && <span style={{ fontSize: 11, color: "#A32D2D" }}>+{Math.round((new Date("2000-01-01T" + log.wakeup) - new Date("2000-01-01T05:30")) / 60000)} min late</span>}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <i className="ti ti-run" style={{ fontSize: 16, color: "var(--color-text-secondary)" }} aria-hidden="true" />
+              <span style={{ fontSize: 13, color: "var(--color-text-secondary)", width: 90 }}>Workout 40m</span>
+              <input type="checkbox" checked={log.workout} onChange={e => update("workout", e.target.checked)} style={{ width: 16, height: 16 }} />
+              <span style={{ fontSize: 12, color: log.workout ? "#0F6E56" : "var(--color-text-tertiary)" }}>{log.workout ? "Done" : "Pending"}</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <i className="ti ti-shield-lock" style={{ fontSize: 16, color: "var(--color-text-secondary)" }} aria-hidden="true" />
+              <span style={{ fontSize: 13, color: "var(--color-text-secondary)", width: 90 }}>NoFap streak</span>
+              <input type="checkbox" checked={log.nofap} onChange={e => update("nofap", e.target.checked)} style={{ width: 16, height: 16 }} />
+              <span style={{ fontSize: 12, color: log.nofap ? "#0F6E56" : "var(--color-text-tertiary)" }}>{log.nofap ? "Clean today" : "Slip logged"}</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <i className="ti ti-device-mobile" style={{ fontSize: 16, color: "var(--color-text-secondary)" }} aria-hidden="true" />
+              <span style={{ fontSize: 13, color: "var(--color-text-secondary)", width: 90 }}>Social media</span>
+              <input type="number" value={log.sm_actual} onChange={e => update("sm_actual", e.target.value)} placeholder="min" style={{ width: 60, fontSize: 13, padding: "4px 8px" }} />
+              <span style={{ fontSize: 11, color: (parseInt(log.sm_actual) || 0) <= log.sm_target ? "#0F6E56" : "#A32D2D" }}>/ {log.sm_target}m limit</span>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)", padding: "14px 16px" }}>
+          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>Focus metrics</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <i className="ti ti-brain" style={{ fontSize: 16, color: "var(--color-text-secondary)" }} aria-hidden="true" />
+              <span style={{ fontSize: 13, color: "var(--color-text-secondary)", width: 120 }}>Deep work sessions</span>
+              <input type="number" min={0} max={10} value={log.deep_work} onChange={e => update("deep_work", parseInt(e.target.value) || 0)} style={{ width: 60, fontSize: 13, padding: "4px 8px" }} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <i className="ti ti-mood-confuzed" style={{ fontSize: 16, color: "var(--color-text-secondary)" }} aria-hidden="true" />
+              <span style={{ fontSize: 13, color: "var(--color-text-secondary)", width: 120 }}>Procrastination incidents</span>
+              <input type="number" min={0} max={20} value={log.procrastination} onChange={e => update("procrastination", parseInt(e.target.value) || 0)} style={{ width: 60, fontSize: 13, padding: "4px 8px" }} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <i className="ti ti-stars" style={{ fontSize: 16, color: "var(--color-text-secondary)" }} aria-hidden="true" />
+              <span style={{ fontSize: 13, color: "var(--color-text-secondary)", width: 120 }}>Mood (1–5)</span>
+              <input type="range" min={1} max={5} step={1} value={log.mood} onChange={e => update("mood", parseInt(e.target.value))} style={{ flex: 1 }} />
+              <span style={{ fontSize: 13, minWidth: 20 }}>{log.mood}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)", padding: "14px 16px", marginBottom: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>Study hours tracker — target: 12h/day</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {SUBJECTS.map(s => {
+            const actual = parseFloat(log[s.key]) || 0;
+            const pct = Math.min(100, Math.round((actual / s.target) * 100));
+            return (
+              <div key={s.key} style={{ display: "grid", gridTemplateColumns: "130px 70px 1fr 50px", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 13, color: "var(--color-text-primary)" }}>{s.label}</span>
+                <input type="number" min={0} max={8} step={0.5} placeholder={s.target + "h target"} value={log[s.key]} onChange={e => update(s.key, e.target.value)} style={{ fontSize: 13, padding: "4px 8px" }} />
+                <ProgressBar value={actual} max={s.target} color={s.color} />
+                <span style={{ fontSize: 12, color: pct >= 100 ? "#0F6E56" : "var(--color-text-secondary)", textAlign: "right" }}>{pct}%</span>
+              </div>
+            );
+          })}
+          <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 10, display: "grid", gridTemplateColumns: "130px 70px 1fr 50px", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 500 }}>Total</span>
+            <span style={{ fontSize: 13, fontWeight: 500 }}>{totalActual.toFixed(1)}h</span>
+            <ProgressBar value={totalActual} max={TOTAL_TARGET} color={totalActual >= TOTAL_TARGET ? "#0F6E56" : "#185FA5"} />
+            <span style={{ fontSize: 12, fontWeight: 500, textAlign: "right", color: consistency >= 100 ? "#0F6E56" : "var(--color-text-secondary)" }}>{consistency}%</span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)", padding: "14px 16px" }}>
+        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Evening reflection</div>
+        <textarea value={log.reflection} onChange={e => update("reflection", e.target.value)} placeholder="What went well? What were your biggest obstacles today? What will you do differently tomorrow?" style={{ width: "100%", minHeight: 80, fontSize: 13, resize: "vertical", boxSizing: "border-box", padding: "8px 12px", borderRadius: "var(--border-radius-md)", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", color: "var(--color-text-primary)" }} />
+      </div>
+    </div>
+  );
+}
+
+function MockTestTracker() {
+  const [mocks, setMocks] = useState(MOCK_SAMPLE);
+  const [form, setForm] = useState({ date: "", name: "", math: "", reasoning: "", gk: "", english: "", time: "", errors: "" });
+  const [show, setShow] = useState(false);
+
+  const addMock = () => {
+    const total = (parseInt(form.math) || 0) + (parseInt(form.reasoning) || 0) + (parseInt(form.gk) || 0) + (parseInt(form.english) || 0);
+    const accuracy = total > 0 ? Math.round((total / 100) * 100) : 0;
+    setMocks(p => [...p, { ...form, total, accuracy, attempts: Math.round(Math.random() * 10 + 85), rank: "Calculating..." }]);
+    setForm({ date: "", name: "", math: "", reasoning: "", gk: "", english: "", time: "", errors: "" });
+    setShow(false);
+  };
+
+  const avg = key => {
+    const vals = mocks.map(m => parseFloat(m[key]) || 0).filter(v => v > 0);
+    return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+  };
+
+  return (
+    <div>
+      <SectionHeader icon="ti-chart-line" title="Mock test performance tracker" badge={mocks.length + " tests logged"} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginBottom: 20 }}>
+        <MetricCard label="Avg total score" value={avg("total") + "/100"} sub="All tests" color="#185FA5" />
+        <MetricCard label="Avg accuracy" value={avg("accuracy") + "%"} color="#0F6E56" />
+        <MetricCard label="Best score" value={Math.max(...mocks.map(m => m.total)) + "/100"} />
+        <MetricCard label="Tests taken" value={mocks.length} sub="Keep going" />
+      </div>
+
+      <div style={{ overflowX: "auto", marginBottom: 16 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <thead>
+            <tr style={{ background: "var(--color-background-secondary)" }}>
+              {["Date", "Test name", "Math", "Reasoning", "GK", "Eng", "Total", "Accuracy", "Time(m)", "Rank", "Error notes"].map(h => (
+                <th key={h} style={{ padding: "8px 10px", textAlign: "left", fontWeight: 500, color: "var(--color-text-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)", whiteSpace: "nowrap" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {mocks.map((m, i) => (
+              <tr key={i} style={{ borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                <td style={{ padding: "8px 10px", color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>{m.date}</td>
+                <td style={{ padding: "8px 10px", fontWeight: 500 }}>{m.name}</td>
+                <td style={{ padding: "8px 10px", color: "#185FA5" }}>{m.math}</td>
+                <td style={{ padding: "8px 10px", color: "#0F6E56" }}>{m.reasoning}</td>
+                <td style={{ padding: "8px 10px", color: "#854F0B" }}>{m.gk}</td>
+                <td style={{ padding: "8px 10px", color: "#993556" }}>{m.english}</td>
+                <td style={{ padding: "8px 10px", fontWeight: 500, color: m.total >= 70 ? "#0F6E56" : m.total >= 55 ? "#854F0B" : "#A32D2D" }}>{m.total}</td>
+                <td style={{ padding: "8px 10px" }}>{m.accuracy}%</td>
+                <td style={{ padding: "8px 10px" }}>{m.time}</td>
+                <td style={{ padding: "8px 10px", fontSize: 11, color: "var(--color-text-info)" }}>{m.rank}</td>
+                <td style={{ padding: "8px 10px", fontSize: 11, color: "var(--color-text-secondary)" }}>{m.errors}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <button onClick={() => setShow(!show)} style={{ marginBottom: 12 }}>
+        <i className="ti ti-plus" style={{ marginRight: 6 }} aria-hidden="true" />
+        Log new mock test ↗
+      </button>
+
+      {show && (
+        <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-lg)", padding: 16, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
+          {[["date", "Date", "date"], ["name", "Test name", "text"], ["math", "Math score", "number"], ["reasoning", "Reasoning", "number"], ["gk", "GK score", "number"], ["english", "English", "number"], ["time", "Time (min)", "number"], ["errors", "Error notes", "text"]].map(([k, l, t]) => (
+            <div key={k} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <label style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{l}</label>
+              <input type={t} value={form[k]} onChange={e => setForm(p => ({ ...p, [k]: e.target.value }))} style={{ fontSize: 13, padding: "6px 8px" }} />
+            </div>
+          ))}
+          <div style={{ gridColumn: "span 4", textAlign: "right" }}>
+            <button onClick={addMock}>Save test ↗</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StudyAnalytics() {
+  useEffect(() => {
+    if (!window.Chart) return;
+    const charts = [];
+
+    const colors = { math: "#185FA5", reasoning: "#0F6E56", gk: "#854F0B", english: "#993556" };
+
+    const c1 = new window.Chart(document.getElementById("chart-hours"), {
+      type: "line",
+      data: {
+        labels: WEEKLY_SAMPLE.map(w => w.week),
+        datasets: [
+          { label: "Total hours", data: WEEKLY_SAMPLE.map(w => w.total), borderColor: "#185FA5", backgroundColor: "rgba(24,95,165,0.08)", tension: 0.3, fill: true, pointRadius: 4 },
+          { label: "Target (12h)", data: WEEKLY_SAMPLE.map(() => 12), borderColor: "#A32D2D", borderDash: [6, 3], pointRadius: 0, borderWidth: 1.5 },
+        ],
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 8, max: 14, grid: { color: "rgba(0,0,0,0.05)" } } } },
+    });
+
+    const c2 = new window.Chart(document.getElementById("chart-scores"), {
+      type: "line",
+      data: {
+        labels: MOCK_SAMPLE.map(m => m.name),
+        datasets: [
+          { label: "Total score", data: MOCK_SAMPLE.map(m => m.total), borderColor: "#185FA5", backgroundColor: "rgba(24,95,165,0.08)", tension: 0.3, fill: true, pointRadius: 4 },
+        ],
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 40, max: 100, grid: { color: "rgba(0,0,0,0.05)" } } } },
+    });
+
+    const c3 = new window.Chart(document.getElementById("chart-subjects"), {
+      type: "line",
+      data: {
+        labels: MOCK_SAMPLE.map(m => m.name),
+        datasets: SUBJECTS.map(s => ({
+          label: s.label,
+          data: MOCK_SAMPLE.map(m => m[s.key]),
+          borderColor: s.color,
+          tension: 0.3,
+          pointRadius: 4,
+          borderWidth: 2,
+        })),
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: "rgba(0,0,0,0.05)" } } } },
+    });
+
+    const c4 = new window.Chart(document.getElementById("chart-accuracy"), {
+      type: "line",
+      data: {
+        labels: MOCK_SAMPLE.map(m => m.name),
+        datasets: [
+          { label: "Accuracy %", data: MOCK_SAMPLE.map(m => m.accuracy), borderColor: "#0F6E56", backgroundColor: "rgba(15,110,86,0.08)", tension: 0.3, fill: true, pointRadius: 4 },
+          { label: "Attempt rate", data: MOCK_SAMPLE.map(m => m.attempts), borderColor: "#854F0B", borderDash: [4, 2], tension: 0.3, pointRadius: 3 },
+        ],
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 60, max: 100, grid: { color: "rgba(0,0,0,0.05)" } } } },
+    });
+
+    charts.push(c1, c2, c3, c4);
+    return () => charts.forEach(c => c.destroy());
+  }, []);
+
+  const ChartCard = ({ id, title, legend }) => (
+    <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)", padding: "14px 16px" }}>
+      <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>{title}</div>
+      {legend && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 10 }}>
+          {legend.map(l => (
+            <span key={l.label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--color-text-secondary)" }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: l.color, display: "inline-block" }} />
+              {l.label}
+            </span>
+          ))}
+        </div>
+      )}
+      <div style={{ position: "relative", height: 200 }}>
+        <canvas id={id} role="img" aria-label={title}>{title} chart</canvas>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <SectionHeader icon="ti-chart-bar" title="Study & mock analytics" />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <ChartCard id="chart-hours" title="Weekly study hours vs 12h target"
+          legend={[{ label: "Actual hours", color: "#185FA5" }, { label: "Target line", color: "#A32D2D" }]} />
+        <ChartCard id="chart-scores" title="Mock test total score trend"
+          legend={[{ label: "Total score /100", color: "#185FA5" }]} />
+        <ChartCard id="chart-subjects" title="Subject-wise score improvement"
+          legend={SUBJECTS.map(s => ({ label: s.label, color: s.color }))} />
+        <ChartCard id="chart-accuracy" title="Accuracy & attempt rate trend"
+          legend={[{ label: "Accuracy %", color: "#0F6E56" }, { label: "Attempt rate %", color: "#854F0B" }]} />
+      </div>
+      <div style={{ marginTop: 14, padding: "10px 14px", background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", fontSize: 12, color: "var(--color-text-secondary)" }}>
+        <i className="ti ti-info-circle" style={{ marginRight: 6, fontSize: 14 }} aria-hidden="true" />
+        To replicate these charts in Google Sheets: copy the weekly/mock data tables, paste into columns A–F, then Insert → Chart → Line chart. Set X-axis = week/test name, Y-axis = score/hours. Add a constant-value column for target lines.
+      </div>
+    </div>
+  );
+}
+
+function GoalPyramid() {
+  const levels = [
+    { label: "5-year vision", sub: "₹50 Lakh income · RRB NTPC Accountant · Financial independence", color: "#185FA5", bg: "#E6F1FB", text: "#0C447C" },
+    { label: "8-month goal", sub: "Clear RRB NTPC with top percentile · 600+ hours of study logged", color: "#0F6E56", bg: "#E1F5EE", text: "#085041" },
+    { label: "Monthly milestones", sub: "Complete each subject module · 8+ mock tests · ₹10K+ side income", color: "#854F0B", bg: "#FAEEDA", text: "#633806" },
+    { label: "Weekly targets", sub: "84h study (12h/day) · 2 full mocks · NoFap streak maintained", color: "#993556", bg: "#FBEAF0", text: "#72243E" },
+    { label: "Daily non-negotiables", sub: "5:30 AM wake · 40m workout · 12h study · ≤20m social media · Reflection", color: "#444441", bg: "#F1EFE8", text: "#2C2C2A" },
+  ];
+
+  return (
+    <div>
+      <SectionHeader icon="ti-pyramid" title="Goal hierarchy pyramid" />
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {levels.map((l, i) => (
+          <div key={i} style={{ background: l.bg, borderRadius: "var(--border-radius-md)", padding: "12px 18px", marginLeft: i * 16, marginRight: i * 16, border: `0.5px solid ${l.color}30` }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: l.text }}>{l.label}</div>
+            <div style={{ fontSize: 12, color: l.color, marginTop: 3 }}>{l.sub}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function IncomeTracker() {
+  const [entries, setEntries] = useState(INCOME_SAMPLE);
+  const [form, setForm] = useState({ month: "", astrology: "", trading: "", youtube: "" });
+  const [show, setShow] = useState(false);
+
+  const grandTotal = entries.reduce((s, e) => s + e.total, 0);
+  const progress = Math.min(100, (grandTotal / TOTAL_5YR_GOAL) * 100);
+
+  const addEntry = () => {
+    const total = (parseInt(form.astrology) || 0) + (parseInt(form.trading) || 0) + (parseInt(form.youtube) || 0);
+    setEntries(p => [...p, { ...form, total }]);
+    setForm({ month: "", astrology: "", trading: "", youtube: "" });
+    setShow(false);
+  };
+
+  return (
+    <div>
+      <SectionHeader icon="ti-currency-rupee" title="Income & side hustle tracker" />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginBottom: 16 }}>
+        <MetricCard label="Total earned (YTD)" value={"₹" + grandTotal.toLocaleString("en-IN")} color="#0F6E56" />
+        <MetricCard label="5-year goal" value="₹50,00,000" sub="₹10 Cr ultimate" />
+        <MetricCard label="Progress" value={progress.toFixed(2) + "%"} sub="to ₹50L milestone" color="#185FA5" />
+        <MetricCard label="Avg monthly" value={"₹" + Math.round(grandTotal / entries.length).toLocaleString("en-IN")} />
+      </div>
+
+      <div style={{ marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ flex: 1, background: "#e5e7eb", borderRadius: 6, height: 10, overflow: "hidden" }}>
+          <div style={{ width: progress + "%", background: "linear-gradient(90deg, #0F6E56, #185FA5)", height: "100%", borderRadius: 6 }} />
+        </div>
+        <span style={{ fontSize: 12, color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>₹{grandTotal.toLocaleString("en-IN")} / ₹50L</span>
+      </div>
+
+      <div style={{ overflowX: "auto", marginBottom: 12 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: "var(--color-background-secondary)" }}>
+              {["Month", "Astrology income (₹)", "Trading profit (₹)", "YouTube revenue (₹)", "Total (₹)"].map(h => (
+                <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontWeight: 500, color: "var(--color-text-secondary)", borderBottom: "0.5px solid var(--color-border-tertiary)" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((e, i) => (
+              <tr key={i} style={{ borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+                <td style={{ padding: "8px 12px", fontWeight: 500 }}>{e.month}</td>
+                <td style={{ padding: "8px 12px", color: "#185FA5" }}>₹{e.astrology.toLocaleString("en-IN")}</td>
+                <td style={{ padding: "8px 12px", color: "#0F6E56" }}>₹{e.trading.toLocaleString("en-IN")}</td>
+                <td style={{ padding: "8px 12px", color: "#854F0B" }}>₹{e.youtube.toLocaleString("en-IN")}</td>
+                <td style={{ padding: "8px 12px", fontWeight: 500 }}>₹{e.total.toLocaleString("en-IN")}</td>
+              </tr>
+            ))}
+            <tr style={{ background: "var(--color-background-secondary)", fontWeight: 500 }}>
+              <td style={{ padding: "8px 12px" }}>Total</td>
+              <td style={{ padding: "8px 12px", color: "#185FA5" }}>₹{entries.reduce((s, e) => s + e.astrology, 0).toLocaleString("en-IN")}</td>
+              <td style={{ padding: "8px 12px", color: "#0F6E56" }}>₹{entries.reduce((s, e) => s + e.trading, 0).toLocaleString("en-IN")}</td>
+              <td style={{ padding: "8px 12px", color: "#854F0B" }}>₹{entries.reduce((s, e) => s + e.youtube, 0).toLocaleString("en-IN")}</td>
+              <td style={{ padding: "8px 12px" }}>₹{grandTotal.toLocaleString("en-IN")}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <button onClick={() => setShow(!show)}>
+        <i className="ti ti-plus" style={{ marginRight: 6 }} aria-hidden="true" />
+        Add month ↗
+      </button>
+      {show && (
+        <div style={{ marginTop: 12, background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-lg)", padding: 16, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
+          {[["month", "Month", "text"], ["astrology", "Astrology (₹)", "number"], ["trading", "Trading (₹)", "number"], ["youtube", "YouTube (₹)", "number"]].map(([k, l, t]) => (
+            <div key={k} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <label style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{l}</label>
+              <input type={t} value={form[k]} onChange={e => setForm(p => ({ ...p, [k]: e.target.value }))} style={{ fontSize: 13, padding: "6px 8px" }} />
+            </div>
+          ))}
+          <div style={{ gridColumn: "span 4", textAlign: "right" }}>
+            <button onClick={addEntry}>Save ↗</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HabitSystem() {
+  return (
+    <div>
+      <SectionHeader icon="ti-brain" title="Habit transformation system" />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
+        {HABIT_STRATEGIES.map(h => (
+          <div key={h.title} style={{ background: h.bg, borderRadius: "var(--border-radius-lg)", padding: "16px 18px", border: `0.5px solid ${h.color}30` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <i className={`ti ${h.icon}`} style={{ fontSize: 18, color: h.color }} aria-hidden="true" />
+              <span style={{ fontSize: 13, fontWeight: 500, color: h.textColor }}>{h.title}</span>
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 16, display: "flex", flexDirection: "column", gap: 7 }}>
+              {h.tactics.map((t, i) => (
+                <li key={i} style={{ fontSize: 12, color: h.textColor, lineHeight: 1.5 }}>{t}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 16, background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)", padding: "14px 18px" }}>
+        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 10 }}>Accountability, rewards & penalties</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+          {[
+            { icon: "ti-trophy", color: "#0F6E56", bg: "#E1F5EE", title: "Rewards (weekly)", items: ["12h/day avg → 1hr of free time", "NoFap 7 days → buy 1 desired item", "Mock score >75 → celebrate with journal"] },
+            { icon: "ti-ban", color: "#A32D2D", bg: "#FCEBEB", title: "Penalties (weekly)", items: ["<10h avg → 2 extra hours next week", "Social media overage → 30-day block", "Procrastination >3/day → no breaks"] },
+            { icon: "ti-refresh", color: "#185FA5", bg: "#E6F1FB", title: "Contingency plans", items: ["Bad day → 6h minimum, no excuses", "Streak broken → reset, no shame spiral", "Low mock score → error analysis session"] },
+          ].map(c => (
+            <div key={c.title} style={{ background: c.bg, borderRadius: "var(--border-radius-md)", padding: "12px 14px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                <i className={`ti ${c.icon}`} style={{ fontSize: 16, color: c.color }} aria-hidden="true" />
+                <span style={{ fontSize: 12, fontWeight: 500, color: c.color }}>{c.title}</span>
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 14 }}>
+                {c.items.map((item, i) => (
+                  <li key={i} style={{ fontSize: 11, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WeeklyReview() {
+  const [scores, setScores] = useState({ consistency: 7, discipline: 6, focus: 7, sleep: 8, nofap: 5 });
+  const [notes, setNotes] = useState({ wins: "", procrastination: "", slips: "", actions: "" });
+
+  const avg = Math.round(Object.values(scores).reduce((a, b) => a + b, 0) / Object.keys(scores).length);
+
+  return (
+    <div>
+      <SectionHeader icon="ti-clipboard-list" title="Weekly review template" />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div style={{ background: "var(--color-background-primary)", border: "0.5px solid var(--color-border-tertiary)", borderRadius: "var(--border-radius-lg)", padding: "14px 16px" }}>
+          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>Performance ratings (1–10)</div>
+          {Object.entries(scores).map(([k, v]) => (
+            <div key={k} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <span style={{ fontSize: 13, color: "var(--color-text-secondary)", width: 110, textTransform: "capitalize" }}>{k.replace("_", " ")}</span>
+              <input type="range" min={1} max={10} step={1} value={v} onChange={e => setScores(p => ({ ...p, [k]: parseInt(e.target.value) }))} style={{ flex: 1 }} />
+              <span style={{ fontSize: 13, fontWeight: 500, minWidth: 16, color: v >= 7 ? "#0F6E56" : v >= 5 ? "#854F0B" : "#A32D2D" }}>{v}</span>
+            </div>
+          ))}
+          <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 13 }}>Weekly average score</span>
+            <span style={{ fontSize: 20, fontWeight: 500, color: avg >= 7 ? "#0F6E56" : avg >= 5 ? "#854F0B" : "#A32D2D" }}>{avg}/10</span>
+          </div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {[["wins", "This week's wins"], ["procrastination", "Procrastination analysis & triggers"], ["slips", "Addiction slips (honest log)"], ["actions", "Corrective actions for next week"]].map(([k, l]) => (
+            <div key={k}>
+              <label style={{ fontSize: 12, color: "var(--color-text-secondary)", display: "block", marginBottom: 4 }}>{l}</label>
+              <textarea value={notes[k]} onChange={e => setNotes(p => ({ ...p, [k]: e.target.value }))} style={{ width: "100%", minHeight: 56, fontSize: 12, resize: "vertical", boxSizing: "border-box", padding: "8px 10px", borderRadius: "var(--border-radius-md)", border: "0.5px solid var(--color-border-secondary)", background: "var(--color-background-secondary)", color: "var(--color-text-primary)" }} placeholder="Write honestly..." />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Vision() {
+  return (
+    <div>
+      <SectionHeader icon="ti-eye" title="Personal vision statement" />
+      <div style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-lg)", padding: "20px 24px", borderLeft: "3px solid #185FA5" }}>
+        <p style={{ fontSize: 14, lineHeight: 1.8, color: "var(--color-text-primary)", margin: 0 }}>
+          By 2031, I am a top-ranked RRB NTPC Accountant with a salary that forms the foundation of my financial empire. My side income from astrology consulting, disciplined trading, and a growing YouTube channel totals well over ₹50 lakhs — a number that once felt impossible but is now simply a checkpoint on my way to ₹10 Crore. I wake at 5:30 AM every morning with iron discipline, body trained, mind sharp, completely free from the chains of porn addiction, social media distraction, and procrastination that once stole my potential. I am not who I was. I am proof that a man who masters himself can master the world.
+        </p>
+      </div>
+      <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+        {[
+          { label: "Target exam", value: "RRB NTPC", sub: "Accountant post" },
+          { label: "Daily study", value: "12 hours", sub: "Avg target" },
+          { label: "Year 5 income", value: "₹50 Lakh", sub: "Side hustle + salary" },
+          { label: "Ultimate goal", value: "₹10 Crore", sub: "Long-term vision" },
+          { label: "Wake-up target", value: "5:30 AM", sub: "Every day" },
+        ].map(c => (
+          <div key={c.label} style={{ background: "var(--color-background-secondary)", borderRadius: "var(--border-radius-md)", padding: "12px 14px" }}>
+            <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 4 }}>{c.label}</div>
+            <div style={{ fontSize: 16, fontWeight: 500, color: "var(--color-text-primary)" }}>{c.value}</div>
+            <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>{c.sub}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const TABS = [
+  { key: "vision", label: "Vision", icon: "ti-eye" },
+  { key: "daily", label: "Daily tracker", icon: "ti-calendar-event" },
+  { key: "mocks", label: "Mock tests", icon: "ti-file-check" },
+  { key: "analytics", label: "Analytics", icon: "ti-chart-bar" },
+  { key: "income", label: "Income", icon: "ti-currency-rupee" },
+  { key: "habits", label: "Habits", icon: "ti-brain" },
+  { key: "weekly", label: "Weekly review", icon: "ti-clipboard-list" },
+];
+
+export default function App() {
+  const [tab, setTab] = useState("vision");
+
+  return (
+    <div style={{ fontFamily: "var(--font-sans)", maxWidth: 860, margin: "0 auto", padding: "1rem 0" }}>
+      <h2 className="sr-only">RRB NTPC Life Transformation & Goal Tracker</h2>
+
+      <div style={{ marginBottom: 20, paddingBottom: 14, borderBottom: "0.5px solid var(--color-border-tertiary)" }}>
+        <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Life transformation system</div>
+        <div style={{ fontSize: 20, fontWeight: 500, color: "var(--color-text-primary)" }}>RRB NTPC goal tracker</div>
+        <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 3 }}>Accountant post · 12h/day · ₹50L by Year 5</div>
+      </div>
+
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 24 }}>
+        {TABS.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, padding: "7px 14px", background: tab === t.key ? "var(--color-background-secondary)" : "transparent", border: tab === t.key ? "0.5px solid var(--color-border-primary)" : "0.5px solid transparent", fontWeight: tab === t.key ? 500 : 400, borderRadius: "var(--border-radius-md)" }}>
+            <i className={`ti ${t.icon}`} style={{ fontSize: 15 }} aria-hidden="true" />
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "vision" && <Vision />}
+      {tab === "daily" && <DailyTracker />}
+      {tab === "mocks" && <MockTestTracker />}
+      {tab === "analytics" && <StudyAnalytics />}
+      {tab === "income" && <IncomeTracker />}
+      {tab === "habits" && <HabitSystem />}
+      {tab === "weekly" && <WeeklyReview />}
+
+      {tab === "vision" && (
+        <div style={{ marginTop: 20, padding: "16px 20px", background: "#E6F1FB", borderRadius: "var(--border-radius-lg)", border: "0.5px solid #185FA530" }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: "#0C447C", marginBottom: 6 }}>Closing reminder</div>
+          <p style={{ fontSize: 13, color: "#185FA5", lineHeight: 1.7, margin: 0 }}>
+            Discipline is not punishment — it is the highest form of self-respect. Every hour you study when you don't want to, every urge you overcome, every early morning you choose over comfort is a vote for the man you are becoming. Your competitors are sleeping. Your future self is watching. Show up.
+          </p>
+        </div>
+      )}
+
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" />
+    </div>
+  );
+}
